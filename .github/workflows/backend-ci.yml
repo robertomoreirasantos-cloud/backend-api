@@ -1,4 +1,4 @@
-name: Backend CI/CD
+name: Backend CI/CD (Dev)
 
 on:
   push:
@@ -25,7 +25,7 @@ jobs:
       - name: Push Docker image
         run: docker push ${{ secrets.DOCKER_USERNAME }}/backend-api:dev
 
-      - name: Deploy to EC2
+      - name: Deploy to EC2 (Dev)
         uses: appleboy/ssh-action@v0.1.10
         with:
           host: ${{ secrets.EC2_HOST }}
