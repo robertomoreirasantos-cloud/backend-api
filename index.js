@@ -1,17 +1,32 @@
-import express from "express";
-import cors from "cors";
+const express = require("express");
+const cors = require("cors");
+const fs = require("fs");
+const path = require("path");
 
 const app = express();
+const PORT = 3001;
+
 app.use(cors());
+app.use(express.json());
 
-const PORT = process.env.PORT || 3001;
-const MESSAGE = process.env.API_MESSAGE || "Olá do backend!";
-const VERSION = process.env.API_VERSION || "v1";
-
+// rota simples de teste
 app.get("/api/hello", (req, res) => {
-  res.json({ message: MESSAGE, version: VERSION, ts: new Date().toISOString() });
+  res.json({ message: "Hello from Backend API!" });
+});
+
+// rota de produtos
+app.get("/api/products", (req, res) => {
+  const filePath = path.join(__dirname, "products.json");
+  try {
+    const data = fs.readFileSync(filePath, "utf-8");
+    const products = JSON.parse(data);
+    res.json(products);
+  } catch (err) {
+    console.error("Erro ao ler products.json:", err);
+    res.status(500).json({ error: "Erro ao carregar os produtos" });
+  }
 });
 
 app.listen(PORT, () => {
-  console.log(`API rodando na porta ${PORT} (version=${VERSION})`);
+  console.log(`Backend API running on port ${PORT}`);
 });
