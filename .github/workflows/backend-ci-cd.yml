@@ -1,0 +1,56 @@
+name: Backend CI/CD
+
+on:
+  push:
+    branches:
+      - dev
+      - staging
+      - master
+  pull_request:
+    branches:
+      - dev
+      - staging
+      - master
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Login to Docker Hub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+      - name: Set image tag based on branch
+        id: vars
+        run: |
+          if [[ "${GITHUB_REF##*/}" == "dev" ]]; then
+            echo "TAG=dev" >> $GITHUB_OUTPUT
+            echo "PORT=8080" >> $GITHUB_OUTPUT
+          elif [[ "${GITHUB_REF##*/}" == "staging" ]]; then
+            echo "TAG=staging" >> $GITHUB_OUTPUT
+            echo "PORT=4000" >> $GITHUB_OUTPUT
+          elif [[ "${GITHUB_REF##*/}" == "master" ]]; then
+            echo "TAG=latest" >> $GITHUB_OUTPUT
+            echo "PORT=5000" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build Docker image
+        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/backend-api:${{ steps.vars.outputs.TAG }} .
+
+      - name: Push Docker image
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/backend-api:${{ steps.vars.outputs.TAG }}
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            docker pull ${{ secrets.DOCKER_USERNAME }}/backend-api:${{ steps.vars.outputs.TAG }}
+            docker stop backend-api || true
+            docker rm backend-api || true
+            docker run -d --name backend-api -p ${{ steps.vars.outputs.PORT }}:${{ steps.vars.outputs.PORT }} ${{ secrets.DOCKER_USERNAME }}/backend-api:${{ steps.vars.outputs.TAG }}
