@@ -63,12 +63,29 @@ jobs:
             # Pull da nova imagem
             docker pull ${{ secrets.DOCKER_USERNAME }}/backend-api:${{ needs.build-and-push.outputs.tag }}
             
-            # Para e remove o container específico do ambiente
+            # Para TODOS os containers que usam a porta específica
+            PORT=${{ needs.build-and-push.outputs.port }}
+            CONTAINER_USING_PORT=$(docker ps --format "table {{.Names}}\t{{.Ports}}" | grep ":${PORT}->" | awk '{print $1}' | head -1)
+            
+            if [ ! -z "$CONTAINER_USING_PORT" ]; then
+              echo "🛑 Parando container que usa a porta ${PORT}: $CONTAINER_USING_PORT"
+              docker stop $CONTAINER_USING_PORT || true
+              docker rm $CONTAINER_USING_PORT || true
+            fi
+            
+            # Para e remove também o container específico do ambiente (por precaução)
             docker stop ${{ needs.build-and-push.outputs.container_name }} || true
             docker rm ${{ needs.build-and-push.outputs.container_name }} || true
             
+            # Para containers antigos que podem ter nomes similares
+            docker ps -a --format "{{.Names}}" | grep -E "backend-api|backend_api" | xargs -I {} docker stop {} 2>/dev/null || true
+            docker ps -a --format "{{.Names}}" | grep -E "backend-api|backend_api" | xargs -I {} docker rm {} 2>/dev/null || true
+            
             # Remove imagens antigas para economizar espaço
             docker image prune -f
+            
+            # Aguarda um pouco para liberar a porta
+            sleep 3
             
             # Executa o novo container
             docker run -d \
@@ -82,7 +99,7 @@ jobs:
             
             # Verifica se o container está rodando
             if docker ps | grep -q ${{ needs.build-and-push.outputs.container_name }}; then
-              echo "✅ Container ${{ needs.build-and-push.outputs.container_name }} está rodando"
+              echo "✅ Container ${{ needs.build-and-push.outputs.container_name }} está rodando na porta ${{ needs.build-and-push.outputs.port }}"
               docker logs --tail 20 ${{ needs.build-and-push.outputs.container_name }}
             else
               echo "❌ Falha ao iniciar o container"
