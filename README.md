@@ -7,3 +7,4 @@ Testando staging 🚀
 Testando staging 🚀
 Testando workflow unificado 🚀
 Testando workflow unificado 🚀
+Teste de pipeline em dev 🚀
